@@ -2,14 +2,11 @@ import numpy as np
 import time
 import cv2
 import os
-import imutils
 from playsound import playsound
-import subprocess
 from gtts import gTTS
 from pydub import AudioSegment
-
-#AudioSegment.converter = r"C:/Users/Hello/Downloads/ffmpeg.exe"
-#AudioSegment.ffprobe = r"C:/Users/Hello/Downloads/ffprobe.exe"
+import matplotlib.pyplot as plt
+from sklearn.metrics import precision_recall_curve, auc
 
 LABELS = open("coco.names").read().strip().split("\n")
 with open("coco.names", "r") as f:
@@ -23,18 +20,18 @@ lane = [lane[i - 1] for i in net.getUnconnectedOutLayers()]
 
 # Initialize
 cap = cv2.VideoCapture(0)
-
+ground_truth = []
+predictions = []
+frames = []
 frame_count = 0
 start = time.time()
 first = True
-frames = [] 
 flag = 1
-output_counter = 1  
+output_counter = 1 
 
 while True:
     frame_count += 1
     ret, frame = cap.read()
-    cv2.imshow("Camera", frame)
     frames.append(frame)
 
     if cv2.waitKey(25) & 0xFF == ord('q'):
@@ -44,29 +41,43 @@ while True:
         if frame_count % 60 == 0:
             end = time.time()
             (H, W) = frame.shape[:2]
-            blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416),
-                                          swapRB=True, crop=False)
+            blob = cv2.dnn.blobFromImage(frame, 1/255.0, (416, 416),swapRB=True, crop=False)
             net.setInput(blob)
             layerOutputs = net.forward(lane)
             boxes = []
             confidences = []
             classIDs = []
             centers = []
+
+            # Loop over each of the layer outputs
             for output in layerOutputs:
+                # Loop over each of the detections
                 for detection in output:
                     scores = detection[5:]
                     classID = np.argmax(scores)
                     confidence = scores[classID]
                     if confidence > 0.5:
+                        # Scale the bounding box coordinates back relative to the
+                        # size of the image, keeping in mind that YOLO actually
+                        # returns the center (x, y)-coordinates of the bounding
+                        # box followed by the boxes' width and height
                         box = detection[0:4] * np.array([W, H, W, H])
                         (centerX, centerY, width, height) = box.astype("int")
+
+                        # Use the center (x, y)-coordinates to derive the top and
+                        # left corner of the bounding box
                         x = int(centerX - (width / 2))
                         y = int(centerY - (height / 2))
-                        boxes.append([x, y, int(width), int(height)]
-                                     )
+
+                        # Update our list of bounding box coordinates, confidences,
+                        # and class IDs
+                        boxes.append([x, y, int(width), int(height)])
                         confidences.append(float(confidence))
                         classIDs.append(classID)
                         centers.append((centerX, centerY))
+
+            # Apply non-maxima suppression to suppress weak, overlapping bounding
+            # boxes
             idxs = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.3)
 
             for i in range(len(boxes)):
@@ -77,6 +88,7 @@ while True:
                     color = colors[classIDs[i]]
                     cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
                     cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 3, color, 3)
+                    predictions.append([x, y, x + w, y + h])
 
             texts = ["You have in front of you:"]
             if len(idxs) > 0:
@@ -102,13 +114,18 @@ while True:
 
             print(texts)
 
-            if (flag == 1):
+            if (flag == 0):
                 description = ', '.join(texts)
-                output_filename = f"C:/Users/kiran/OneDrive/Desktop/Voice-Object-detection{output_counter}.mp3"
+                output_filename = f"C:/Users/kiran/OneDrive/Desktop/Voice-Object-detection/Voice-Object-detection{output_counter}.mp3"
                 tts = gTTS(description, lang='en')
                 tts.save(output_filename)
                 playsound(output_filename)
-                output_counter += 1  
-
+                output_counter += 1 
+            cv2.imshow('Frame', frame)
+    
+    # Check for 'q' key to exit
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 cap.release()
 cv2.destroyAllWindows()
+

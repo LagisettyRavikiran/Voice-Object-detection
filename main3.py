@@ -19,8 +19,7 @@ lane = net.getLayerNames()
 lane = [lane[i - 1] for i in net.getUnconnectedOutLayers()]
 
 # Initialize
-a = "http://172.20.44.96:8080/video"
-cap = cv2.VideoCapture(a)
+cap = cv2.VideoCapture(0)
 
 frame_count = 0
 start = time.time()
