@@ -13,10 +13,11 @@ Ensure you have the following dependencies installed:
 
 ```bash
 pip install numpy opencv-python playsound gtts pydub matplotlib scikit-learn
-
+```
 ## 🔧 Setup  
 
 ### Clone the repository:  
 ```bash
 git clone https://github.com/your-username/Voice-Object-Detection.git
 cd Voice-Object-Detection
+```
